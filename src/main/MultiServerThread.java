@@ -32,7 +32,7 @@ public class MultiServerThread extends Thread {
         try {
         	in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         	out = new PrintWriter(socket.getOutputStream(), true);
-        	System.out.println("Created and running a client thread");
+//        	System.out.println("Created and running a client thread");
         	
         	String initHostName = in.readLine();
         	int initPort = Integer.parseInt(in.readLine());
@@ -67,6 +67,7 @@ public class MultiServerThread extends Thread {
             		String portLine = in.readLine();
             		String titleLine = in.readLine();
             		String request = command + "\n" + hostLine + "\n" + portLine + "\n" + titleLine;
+            		System.out.println("Received following request - \n" + request);
         			int resp = addRFC(request, out);
         			if (resp == 0) {
         				badRequest(out);
@@ -78,8 +79,9 @@ public class MultiServerThread extends Thread {
         		else if (command.startsWith("LOOKUP")) {
         			String hostLine = in.readLine();
             		String portLine = in.readLine();
-            		String titleLine = in.readLine();
-            		String request = command + "\n" + hostLine + "\n" + portLine + "\n" + titleLine;
+//            		String titleLine = in.readLine();
+            		String request = command + "\n" + hostLine + "\n" + portLine;
+            		System.out.println("Received following request - \n" + request);
         			int resp = lookUp(request, out);
         			if (resp == 0) {
         				badRequest(out);
@@ -87,11 +89,15 @@ public class MultiServerThread extends Thread {
         			else if (resp == -1) {
         				badVersion(out);
         			}
+        			else if (resp == -2) {
+        				notFound(out);
+        			}
         		}
         		else if (command.startsWith("LIST ALL")) {
         			String hostLine = in.readLine();
             		String portLine = in.readLine();
             		String request = command + "\n" + hostLine + "\n" + portLine + "\n";
+            		System.out.println("Received following request - \n" + request);
         			int resp = listAll(request, out);
         			if (resp == 0) {
         				badRequest(out);
@@ -166,10 +172,51 @@ public class MultiServerThread extends Thread {
 			return -1;
 		}
 		
+		//Second line
+		String line2 = lines[1];
+		String[] splitLine2 = line2.split(": ");
+		String hostName = new String();
+		if (splitLine2[0].equals("Host")) {
+			hostName = splitLine2[1];
+		}
+		else {
+			return 0;
+		}
+		
+		//Third line
+		String line3 = lines[2];
+		String[] splitLine3 = line3.split(": ");
+		int portNum = 0;
+		if (splitLine3[0].equals("Port")) {
+			try {
+				portNum = Integer.parseInt(splitLine3[1]);
+			} catch (NumberFormatException e) {
+				return 0;
+			}
+		}
+		else {
+			return 0;
+		}
+		
+//		//Fourth line
+//		String line4 = lines[3];
+//		String[] splitLine4 = line4.split(": ");
+//		String title = new String();
+//		if (splitLine4[0].equals("Title")) {
+//			title = splitLine4[1];
+//		}
+//		else {
+//			return 0;
+//		}
+		
 		String header = "P2P-CI/1.0 200 OK\n";
 		String response = new String();
 		
-		response = header + lookUpResponse(num) + "EOF";
+		String responseOfLookUp = lookUpResponse(num);
+		if (responseOfLookUp.equals("")) {
+			return -2;
+		}
+		response = header + responseOfLookUp + "EOF";
 		
 		out.println(response);
 		
@@ -231,10 +278,14 @@ public class MultiServerThread extends Thread {
 		
 		//Third line
 		String line3 = lines[2];
-		String[] splitLine3 = line3.split(": "); //
-		int port;
+		String[] splitLine3 = line3.split(": ");
+		int port = 0;
 		if (splitLine3[0].equals("Port")) {
-			port = Integer.parseInt(splitLine3[1]);
+			try {
+				port = Integer.parseInt(splitLine3[1]);
+			} catch (NumberFormatException e) {
+				return 0;
+			}
 		}
 		else {
 			return 0;
@@ -266,12 +317,17 @@ public class MultiServerThread extends Thread {
 	}
 	
 	private void badRequest(PrintWriter out) {
-		String response = "P2P-CI/1.0 404 Bad Request";
+		String response = "P2P-CI/1.0 400 Bad Request";
 		out.println(response + "\nEOF");
 	}
 	
 	private void badVersion(PrintWriter out) {
 		String response = "P2P-CI/1.0 505 P2P-CI Version Not Supported";
+		out.println(response + "\nEOF");
+	}
+	
+	private void notFound(PrintWriter out) {
+		String response = "P2P-CI/1.0 404 Not Found";
 		out.println(response + "\nEOF");
 	}
 }
